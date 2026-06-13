@@ -1,0 +1,2 @@
+# Convenience root requirements — defers to the package list.
+-r x_agent/requirements.txt

@@ -1,0 +1,22 @@
+[Unit]
+# One-shot engagement refresh. Pulls public metrics for recent posts,
+# snapshots them, and — once a post is REWARD_SETTLE_DAYS old — credits
+# its reward to its angle's Beta posterior. This is the step that closes
+# the feedback loop: tomorrow's angle choices are informed by what landed.
+Description=vibe-x-agent engagement refresh (metrics -> bandit reward)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/vibe-x-agent
+EnvironmentFile=/home/ubuntu/vibe-x-agent/.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/vibe-x-agent/.venv/bin/python -m x_agent.engagement refresh
+TimeoutStartSec=10m
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

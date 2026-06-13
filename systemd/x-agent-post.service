@@ -1,0 +1,27 @@
+[Unit]
+# One-shot poster. Fired by x-agent-post.timer at several engagement
+# windows a day. The poster's own caps (X_AGENT_MAX_POSTS_PER_DAY,
+# X_AGENT_MIN_HOURS_BETWEEN_POSTS) decide whether a given fire actually
+# posts, so over-firing is safe.
+Description=vibe-x-agent poster (one-shot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/vibe-x-agent
+EnvironmentFile=/home/ubuntu/vibe-x-agent/.env
+Environment=PYTHONUNBUFFERED=1
+# PATH must include ~/.local/bin so the subprocess finds `claude`.
+# Auth is via ~/.claude/.credentials.json (your Claude plan). Do NOT set
+# ANTHROPIC_API_KEY unless you want per-token billing, and never pass
+# --bare to the claude CLI.
+Environment=PATH=/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/vibe-x-agent/.venv/bin/python -m x_agent.poster
+TimeoutStartSec=10m
+MemoryMax=1G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

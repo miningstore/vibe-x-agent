@@ -1,0 +1,29 @@
+# Secrets — NEVER commit
+.env
+.env.local
+credentials/*
+!credentials/.gitkeep
+
+# Per-project overlay — your product lives here, gitignored so `git pull`
+# never fights your customizations. The template ships product_config_example.py.
+x_agent/product_config.py
+
+# Runtime state (posts, posteriors, tokens, dry-run output)
+x_agent/state/
+state/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.venv-test/
+venv/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

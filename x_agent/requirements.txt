@@ -1,0 +1,7 @@
+# Core — required for posting + the feedback loop.
+requests>=2.31
+requests-oauthlib>=1.3
+
+# Optional — only needed if you enable a `meme` angle (image rendering).
+# Safe to leave installed; text-only deployments never import it.
+Pillow>=10.0

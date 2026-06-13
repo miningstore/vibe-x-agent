@@ -1,0 +1,18 @@
+[Unit]
+Description=Fire the vibe-x-agent poster at a few engagement windows daily
+Requires=x-agent-post.service
+
+[Timer]
+# Several spaced fires a day (UTC). The poster caps real posts at
+# X_AGENT_MAX_POSTS_PER_DAY (default 4) and X_AGENT_MIN_HOURS_BETWEEN_POSTS
+# (default 3h), so these are opportunities, not guarantees. Adjust to your
+# audience's timezone.
+OnCalendar=*-*-* 13:00:00
+OnCalendar=*-*-* 16:30:00
+OnCalendar=*-*-* 20:00:00
+OnCalendar=*-*-* 23:30:00
+Persistent=true
+Unit=x-agent-post.service
+
+[Install]
+WantedBy=timers.target
