@@ -120,7 +120,50 @@ No code edits needed; set these in `.env` (see `.env.example`):
 | `X_AGENT_EXPLORATION_FLOOR` | 0.15 | min fraction of posts chosen at random |
 | `X_AGENT_REWARD_SETTLE_DAYS` | 3 | post age at which engagement is scored |
 | `X_AGENT_REWARD_SCALE` | 10 | higher = more engagement needed per reward unit |
+| `X_AGENT_WEB_GROUNDING` | false | let the agent search for a timely hook (see below) |
 
 The posting schedule itself (which clock times the agent wakes) lives in
 `systemd/x-agent-post.timer` — edit the `OnCalendar=` lines for your
 audience's timezone.
+
+## Web grounding (freshness, opt-in)
+
+By default the agent writes from your static `talking_points`. With web
+grounding on, the first generation attempt per post lets Claude use the
+read-only web tools (WebSearch/WebFetch) to find one timely, real hook (a
+trend, a piece of news, a conversation your audience is having) and tie the
+product to it. This is the difference between a bot that repeats itself and
+one that feels plugged into the moment.
+
+Turn it on in `.env`:
+
+```bash
+X_AGENT_WEB_GROUNDING=true
+# optional:
+X_AGENT_WEB_GROUNDING_BUDGET_USD=0.15   # per-post spend cap on the grounded call
+X_AGENT_WEB_GROUNDING_TIMEOUT_S=240     # grounded calls are slower (they search)
+```
+
+Requirements and behavior:
+
+- Needs the `claude` CLI logged in on the host (plan auth). `health_check`
+  shows `grounding=on` and warns if the CLI is missing.
+- The model is instructed to use only facts it actually finds and to fall
+  back to a normal post if nothing strong and recent turns up. It never
+  pastes URLs into the text.
+- Any failure (timeout, budget, error) falls back to ordinary generation,
+  which falls back to a template. Grounding can never block a post.
+- It costs a little per post and is slower, which is why it is off by
+  default. Verify it on your VPS with a dry run before going live:
+  `X_AGENT_WEB_GROUNDING=true python -m x_agent.poster --dry-run`.
+
+## Safety guardrails (always on)
+
+Every generated post is held to a set of hard guardrails baked into the
+content prompt (you cannot disable these by editing the overlay): no
+reproduction of copyrighted text (lyrics, poems, book or article passages),
+no quotes attributed to or impersonation of real named people, no hateful or
+harassing content, no medical/legal/financial advice framed as fact, and no
+invented statistics, testimonials, or features. The slop gate is a second
+layer on top of these. They exist so the agent is safe to point at your
+audience the moment you turn it on.

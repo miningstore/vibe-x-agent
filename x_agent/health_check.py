@@ -49,13 +49,17 @@ def _check_claude() -> dict:
         os.access(os.path.join(d, bin_path), os.X_OK)
         for d in os.environ.get("PATH", "").split(os.pathsep)
     )
+    reason = "" if found else "claude CLI not found; posts will use templates only"
+    if cfg.WEB_GROUNDING and not found:
+        reason = "web grounding is ON but claude CLI not found; grounding will no-op"
     return {
         "ok": True,             # advisory: agent falls back to templates
         "advisory": not found,
         "claude_bin": bin_path,
         "found": found,
         "model": cfg.CLAUDE_MODEL,
-        "reason": "" if found else "claude CLI not found; posts will use templates only",
+        "web_grounding": cfg.WEB_GROUNDING,
+        "reason": reason,
     }
 
 
@@ -152,7 +156,8 @@ def _print_human(r: dict) -> None:
         print(f"               -> {p['reason']}")
 
     c = r["claude"]
-    print(f"CLAUDE   {status(c):4s}  {c['claude_bin']} (model={c['model']})"
+    grounding = "grounding=on" if c.get("web_grounding") else "grounding=off"
+    print(f"CLAUDE   {status(c):4s}  {c['claude_bin']} (model={c['model']}, {grounding})"
           + (f"  -> {c['reason']}" if c.get("reason") else ""))
 
     xc = r["x_creds"]

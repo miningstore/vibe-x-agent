@@ -59,6 +59,8 @@ your X account  ◄── posts ── agent ── reads metrics ──►  the
 | Auth on a headless box | Spin up an OAuth callback server | **PIN flow** (`authorize.py`) — open a URL, paste a 7-digit code, done. Add accounts with `--label` |
 | Reading engagement needs a separate API tier | Set up a bearer token + app-only auth | Metrics come back through the **same OAuth tokens you post with** — zero extra setup |
 | AI posts read like AI | Ship them anyway | **Slop gate**: every draft scored 0-50, regenerated against flagged tells, template fallback below threshold |
+| Bots drift into spam or infringement | Hope the prompt holds | **Hard guardrails** baked in: no copyrighted text, no fake quotes from real people, no hateful copy or advice-as-fact, no invented stats |
+| Stale, repetitive posts | Feed it news by hand | **Optional web grounding**: the agent searches for one timely, real hook and ties the product to it (opt-in, falls back safely) |
 | A heavy stack to babysit | Postgres + a queue + a dashboard | One JSON state file. `git pull` never fights your config (gitignored overlay) |
 
 ## The feedback loop (the core idea)

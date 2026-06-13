@@ -39,6 +39,20 @@ CLAUDE_BIN = os.environ.get("CLAUDE_BIN", os.path.expanduser("~/.local/bin/claud
 CLAUDE_MODEL = os.environ.get("X_AGENT_LLM_MODEL", "sonnet")
 CLAUDE_TIMEOUT_S = int(os.environ.get("X_AGENT_LLM_TIMEOUT_S", "120"))
 
+# --- Web grounding (opt-in freshness) ------------------------------------
+# When on, the FIRST generation attempt per post lets Claude use the
+# read-only web tools (WebSearch/WebFetch) to find one timely, real hook and
+# tie the product to it, instead of relying only on your static talking
+# points. Off by default: it's slower and costs a little per post. Requires
+# the claude CLI to be logged in on the host (plan auth). Any failure falls
+# back to normal generation, so enabling it can never block a post.
+WEB_GROUNDING = (
+    os.environ.get("X_AGENT_WEB_GROUNDING", "false").strip().lower()
+    in {"1", "true", "yes", "on"}
+)
+WEB_GROUNDING_BUDGET_USD = float(os.environ.get("X_AGENT_WEB_GROUNDING_BUDGET_USD", "0.15"))
+WEB_GROUNDING_TIMEOUT_S = int(os.environ.get("X_AGENT_WEB_GROUNDING_TIMEOUT_S", "240"))
+
 # --- Posting cadence + caps ----------------------------------------------
 # The systemd timer decides WHEN the agent wakes; these decide how much
 # it does once awake. Keep well under the X Free tier's ~500 posts/month.

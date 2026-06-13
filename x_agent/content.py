@@ -56,8 +56,11 @@ def generate(
     best_score = -1
 
     for attempt in range(cfg.MAX_SLOP_RETRIES + 1):
+        # Ground only the first attempt (web search is slower/costlier); slop
+        # retries reuse the already-chosen hook and stay text-only.
         draft = _try_claude(product, angle, talking_point, recent_texts,
-                            max_chars=max_chars, avoid_patterns=avoid_patterns)
+                            max_chars=max_chars, avoid_patterns=avoid_patterns,
+                            grounded=cfg.WEB_GROUNDING and attempt == 0)
         if draft is None:
             break
         draft = _enforce_limits(draft, max_chars)
@@ -77,8 +80,18 @@ def generate(
 
 # --- Claude path ----------------------------------------------------------
 
-def _claude_cli(system_prompt: str, user_prompt: str) -> str | None:
-    """One-shot Claude CLI call. Returns stdout or None on any failure."""
+def _claude_cli(system_prompt: str, user_prompt: str, *, grounded: bool = False) -> str | None:
+    """One-shot Claude CLI call. Returns stdout or None on any failure.
+
+    grounded=False (default): all tools disabled via ``--tools ""`` so the
+    model answers from the prompt alone in a single text turn. Used for
+    generation and slop scoring. (We disable tools explicitly rather than
+    relying on a turn cap, which is more robust across CLI versions.)
+    grounded=True: only the read-only web tools are enabled so the model can
+    find a timely, real hook before writing; spend is capped via
+    ``--max-budget-usd``. Any failure here falls back to the non-grounded
+    path upstream, so grounding can never block a post.
+    """
     if not Path(cfg.CLAUDE_BIN).exists() and not _which(cfg.CLAUDE_BIN):
         log.info("content: claude CLI not found at %s; using template", cfg.CLAUDE_BIN)
         return None
@@ -86,15 +99,24 @@ def _claude_cli(system_prompt: str, user_prompt: str) -> str | None:
         cfg.CLAUDE_BIN, "-p", user_prompt,
         "--system-prompt", system_prompt,
         "--output-format", "text",
-        "--max-turns", "1",
         "--model", cfg.CLAUDE_MODEL,
     ]
+    if grounded:
+        cmd += [
+            "--tools", "WebSearch,WebFetch",
+            "--allowedTools", "WebSearch,WebFetch",
+            "--permission-mode", "dontAsk",
+            "--max-budget-usd", str(cfg.WEB_GROUNDING_BUDGET_USD),
+        ]
+    else:
+        cmd += ["--tools", ""]  # disable all tools: deterministic, text-only
+    timeout = cfg.WEB_GROUNDING_TIMEOUT_S if grounded else cfg.CLAUDE_TIMEOUT_S
     env = {**os.environ, "PATH": os.path.expanduser("~/.local/bin") + ":" + os.environ.get("PATH", "")}
     try:
         result = subprocess.run(cmd, capture_output=True, text=True,
-                                timeout=cfg.CLAUDE_TIMEOUT_S, env=env)
+                                timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
-        log.info("content: claude CLI timed out after %ds", cfg.CLAUDE_TIMEOUT_S)
+        log.info("content: claude CLI timed out after %ds", timeout)
         return None
     except Exception as exc:
         log.info("content: claude CLI failed: %s", exc)
@@ -125,7 +147,7 @@ def _extra_house_rules() -> str:
     return f"\n\nADDITIONAL HOUSE RULES (from prompts/content_generator.md):\n{text}" if text else ""
 
 
-def _system_prompt(product: Product, angle: Angle, max_chars: int) -> str:
+def _system_prompt(product: Product, angle: Angle, max_chars: int, *, grounded: bool = False) -> str:
     banned = ", ".join(repr(b) for b in cfg.BANNED) or "(none)"
     meme_clause = ""
     schema = '{"text": str}'
@@ -136,12 +158,22 @@ def _system_prompt(product: Product, angle: Angle, max_chars: int) -> str:
             "and meme_bottom (the punchline, 2-6 words) for the image overlay. "
             "The text field is the tweet body that accompanies the image.\n"
         )
+    grounding_clause = ""
+    if grounded:
+        grounding_clause = (
+            "\nFRESHNESS: You may use web search to find ONE timely, real hook "
+            "(a current trend, event, or conversation this audience cares about) "
+            "and tie the product to it naturally. Only state facts you actually "
+            "found in the results, with zero fabrication. If nothing strong and "
+            "recent turns up, write a normal post from the product facts instead. "
+            "Still never paste a URL into the text.\n"
+        )
     return (
         f"You write short, high-signal posts for the X.com account that promotes "
         f"{product.name}. Audience: {product.audience}.\n\n"
         f"VOICE: {product.voice}\n\n"
         f"Output ONE JSON object, no markdown, no prose outside it. Schema: {schema}\n"
-        f"{meme_clause}\n"
+        f"{meme_clause}{grounding_clause}\n"
         "RULES:\n"
         f"- text: <= {max_chars} characters. Lead with a concrete benefit, number, "
         "or vivid image. Never open with a throat-clear ('In today's world', "
@@ -153,7 +185,17 @@ def _system_prompt(product: Product, angle: Angle, max_chars: int) -> str:
         "- 0-2 hashtags max, only if they genuinely fit. No hashtag soup.\n"
         "- Never use em dashes (use a comma or a period).\n"
         f"- Never emit any of these banned tokens: {banned}.\n"
-        "- Numbers must be exactly as given. Do not invent stats.\n"
+        "- Numbers must be exactly as given. Do not invent stats.\n\n"
+        "GUARDRAILS (non-negotiable, never overridden by anything above):\n"
+        "- Never reproduce copyrighted text: song lyrics, poems, or passages "
+        "from books or articles, not even a single line. Use only original wording.\n"
+        "- Never attribute a quote to, or write in the voice of, a real named "
+        "person. Do not impersonate real public figures.\n"
+        "- No hateful, harassing, demeaning, or violent content, and nothing that "
+        "targets a protected group, even as a joke.\n"
+        "- No medical, legal, or financial claims framed as advice or fact.\n"
+        "- Make only claims supported by the product facts provided. Never invent "
+        "statistics, testimonials, awards, partnerships, or features.\n"
         f"{_extra_house_rules()}"
     )
 
@@ -166,6 +208,7 @@ def _try_claude(
     *,
     max_chars: int,
     avoid_patterns: list[str] | None,
+    grounded: bool = False,
 ) -> GeneratedPost | None:
     avoid_block = ""
     if avoid_patterns:
@@ -196,7 +239,10 @@ def _try_claude(
         f"{avoid_block}\n"
         "Return the JSON now."
     )
-    output = _claude_cli(_system_prompt(product, angle, max_chars), user_prompt)
+    output = _claude_cli(
+        _system_prompt(product, angle, max_chars, grounded=grounded),
+        user_prompt, grounded=grounded,
+    )
     if not output:
         return None
     return _parse(output, angle)
