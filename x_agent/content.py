@@ -178,7 +178,9 @@ def _system_prompt(product: Product, angle: Angle, max_chars: int, *, grounded: 
             "using a recurring everyman character, and land the product as the "
             "satisfying resolution in the final panel. Dialogue carries the "
             "story; keep lines short and natural. The 'text' field is the tweet "
-            "body posted alongside the image.\n"
+            "body posted alongside the image: a short, punchy caption or "
+            "relatable hook that makes people want to read the comic, not a "
+            "full ad.\n"
         )
     grounding_clause = ""
     if grounded:
@@ -356,6 +358,12 @@ def score_text_slop(package: str) -> tuple[int, list[str]]:
 
 
 def _score_slop(post: GeneratedPost, angle: Angle) -> tuple[int, list[str]]:
+    # Comics are carried by the rendered multi-panel story; their tweet body is
+    # just a short caption, so the ad-copy slop rubric mis-scores it and would
+    # force good comics back to the template. Skip the gate for comics (the hard
+    # content guardrails in the system prompt still apply).
+    if angle.fmt == "comic":
+        return 50, []
     pkg = f"TEXT: {post.text}\n"
     if angle.fmt == "meme":
         pkg += f"MEME_TOP: {post.meme_top}\nMEME_BOTTOM: {post.meme_bottom}\n"
