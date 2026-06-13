@@ -55,22 +55,27 @@ def generate(
     best: GeneratedPost | None = None
     best_score = -1
 
-    for attempt in range(cfg.MAX_SLOP_RETRIES + 1):
-        # Ground only the first attempt (web search is slower/costlier); slop
-        # retries reuse the already-chosen hook and stay text-only.
-        draft = _try_claude(product, angle, talking_point, recent_texts,
-                            max_chars=max_chars, avoid_patterns=avoid_patterns,
-                            grounded=cfg.WEB_GROUNDING and attempt == 0)
-        if draft is None:
-            break
-        draft = _enforce_limits(draft, max_chars)
-        score, patterns = _score_slop(draft, angle)
-        log.info("content: angle=%s slop_score=%d/50 attempt=%d patterns=%s",
-                 angle.key, score, attempt + 1, patterns or "[]")
-        if score >= cfg.SLOP_THRESHOLD:
-            return draft
-        best, best_score = (draft, score) if score > best_score else (best, best_score)
-        avoid_patterns = patterns or []
+    # Try grounded generation first (if enabled), then plain generation, then
+    # the template. A grounded miss (web-search hiccup or budget cap) should
+    # still fall through to a normal Claude post, not jump straight to the
+    # template. Grounding only ever runs on a mode's first attempt.
+    modes = [True, False] if cfg.WEB_GROUNDING else [False]
+    for grounded in modes:
+        for attempt in range(cfg.MAX_SLOP_RETRIES + 1):
+            draft = _try_claude(product, angle, talking_point, recent_texts,
+                                max_chars=max_chars, avoid_patterns=avoid_patterns,
+                                grounded=grounded and attempt == 0)
+            if draft is None:
+                break  # this mode failed; fall through to the next mode
+            draft = _enforce_limits(draft, max_chars)
+            score, patterns = _score_slop(draft, angle)
+            log.info("content: angle=%s grounded=%s slop_score=%d/50 attempt=%d patterns=%s",
+                     angle.key, grounded, score, attempt + 1, patterns or "[]")
+            if score >= cfg.SLOP_THRESHOLD:
+                return draft
+            if score > best_score:
+                best, best_score = draft, score
+            avoid_patterns = patterns or []
 
     if best is not None:
         log.warning("content: slop gate not cleared (best=%d/%d); using template",

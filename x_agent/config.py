@@ -50,7 +50,7 @@ WEB_GROUNDING = (
     os.environ.get("X_AGENT_WEB_GROUNDING", "false").strip().lower()
     in {"1", "true", "yes", "on"}
 )
-WEB_GROUNDING_BUDGET_USD = float(os.environ.get("X_AGENT_WEB_GROUNDING_BUDGET_USD", "0.15"))
+WEB_GROUNDING_BUDGET_USD = float(os.environ.get("X_AGENT_WEB_GROUNDING_BUDGET_USD", "0.50"))
 WEB_GROUNDING_TIMEOUT_S = int(os.environ.get("X_AGENT_WEB_GROUNDING_TIMEOUT_S", "240"))
 
 # --- Posting cadence + caps ----------------------------------------------

@@ -140,7 +140,7 @@ Turn it on in `.env`:
 ```bash
 X_AGENT_WEB_GROUNDING=true
 # optional:
-X_AGENT_WEB_GROUNDING_BUDGET_USD=0.15   # per-post spend cap on the grounded call
+X_AGENT_WEB_GROUNDING_BUDGET_USD=0.50   # per-post spend cap on the grounded call
 X_AGENT_WEB_GROUNDING_TIMEOUT_S=240     # grounded calls are slower (they search)
 ```
 
