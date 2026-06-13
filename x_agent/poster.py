@@ -53,16 +53,14 @@ def _assemble(body: str, include_link: bool) -> str:
     return body
 
 
-def _render_meme_png(post: _content.GeneratedPost) -> bytes | None:
+def _render_media(angle: Angle, post: _content.GeneratedPost) -> bytes | None:
+    """Render the post's content type to a PNG (None for text-only)."""
+    from . import render
     try:
-        from . import meme  # lazy: Pillow only needed for meme angles
-    except ImportError:
-        log.warning("poster: meme angle selected but Pillow not installed; posting text only")
-        return None
-    try:
-        return meme.render(post.meme_top, post.meme_bottom)
+        return render.render_for(angle, post, brand=cfg.BRAND_COLOR, handle=cfg.HANDLE)
     except Exception as exc:
-        log.warning("poster: meme render failed (%s); posting text only", exc)
+        log.warning("poster: media render failed for fmt=%s (%s); posting text only",
+                    angle.fmt, exc)
         return None
 
 
@@ -90,7 +88,7 @@ def _post_once(state: dict, client: XClient | None, *, dry: bool) -> bool:
         recent_texts=recent, max_chars=280 - reserve,
     )
     text = _assemble(post.text, include_link)
-    png = _render_meme_png(post) if angle.fmt == "meme" else None
+    png = _render_media(angle, post)
 
     log.info("poster: angle=%s tp=%r src=%s link=%s chars=%d",
              angle.key, (talking_point or "")[:48], post.source, include_link, len(text))

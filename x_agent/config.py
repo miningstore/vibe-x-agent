@@ -72,6 +72,13 @@ LINK_EVERY_N = int(os.environ.get("X_AGENT_LINK_EVERY_N", "3"))
 # to the model as "do not repeat these".
 RECENT_POSTS_TO_AVOID = int(os.environ.get("X_AGENT_RECENT_POSTS_TO_AVOID", "8"))
 
+# --- Visual content types (meme / comic image rendering) -----------------
+# Brand accent used on rendered images (title bars, backgrounds) and the
+# account handle printed on comic footers. Handle is cosmetic; leave blank
+# to omit it from the image.
+BRAND_COLOR = os.environ.get("X_AGENT_BRAND_COLOR", "#1d9bf0")
+HANDLE = os.environ.get("X_AGENT_HANDLE", "")
+
 # --- Slop gate -----------------------------------------------------------
 SLOP_THRESHOLD = int(os.environ.get("X_AGENT_SLOP_THRESHOLD", "45"))   # of 50
 MAX_SLOP_RETRIES = int(os.environ.get("X_AGENT_SLOP_RETRIES", "2"))

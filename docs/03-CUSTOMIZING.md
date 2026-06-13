@@ -167,3 +167,52 @@ harassing content, no medical/legal/financial advice framed as fact, and no
 invented statistics, testimonials, or features. The slop gate is a second
 layer on top of these. They exist so the agent is safe to point at your
 audience the moment you turn it on.
+
+## Content types (text, meme, comic)
+
+A post's **content type** is set by its angle's `fmt`. It's a small,
+pluggable set (see [`x_agent/render.py`](../x_agent/render.py)):
+
+| `fmt` | What it posts | Renderer |
+|---|---|---|
+| `text` | a plain tweet (default for most angles) | none |
+| `meme` | tweet + a classic top/bottom meme image | `meme.py` (Pillow) |
+| `comic` | tweet + a multi-panel comic strip image | `comic.py` (Pillow) |
+
+All image types render locally with Pillow, so there's no image-generation
+service, API key, or cost involved.
+
+### Comic strips
+
+The `comic` angle has Claude write a short multi-panel script (a title,
+4-6 panels of setting-caption + speech-bubble dialogue + optional sound
+effect, and a tagline) that tells a relatable mini-story landing your
+product as the punchline, in the spirit of indie strips like
+classifiedcomic.pages.dev. `comic.py` renders it as a clean caption comic:
+title bar, colored panels, per-character avatar chips, speech bubbles, and
+a branded footer.
+
+Enable it (and keep all text angles) in your overlay:
+
+```python
+import dataclasses
+from .angles import DEFAULT_ANGLES
+ANGLES = [dataclasses.replace(a, enabled=True) if a.key == "comic" else a
+          for a in DEFAULT_ANGLES]
+```
+
+Style it with env vars: `X_AGENT_BRAND_COLOR` (title/accent) and
+`X_AGENT_HANDLE` (footer). Preview before going live:
+`python -m x_agent.poster --dry-run` writes the rendered PNG to
+`state/dry_runs/` next to the tweet text.
+
+The comic is its own bandit arm, so the feedback loop learns whether
+comics out-earn your text angles for your audience and shifts the mix
+accordingly.
+
+### Adding another visual content type
+
+Write a renderer module with a `render(...) -> bytes` (PNG), add a branch
+for its `fmt` in `render.py`, have `content.py` produce the structured spec
+it needs (like the `comic` object), and add an angle with that `fmt`. The
+poster, dry-run, bandit, and engagement loop all pick it up automatically.

@@ -52,3 +52,19 @@ PRODUCT = Product(
 # Leave ANGLES / TALKING_POINTS / BANNED unset to use the defaults.
 # Example of adding a banned token (a competitor you don't want to name):
 # BANNED = ("Buffer", "Hootsuite")
+
+# --- Content types: text (default), meme, comic ---
+# Posts are plain text unless you enable a visual content type. They render
+# locally via Pillow (no image-generation service). To turn on comic strips
+# (a multi-panel mini-story that lands the product as the punchline) while
+# keeping every text angle, enable that angle in an ANGLES override:
+#
+# import dataclasses
+# from .angles import DEFAULT_ANGLES
+# ANGLES = [dataclasses.replace(a, enabled=True) if a.key == "comic" else a
+#           for a in DEFAULT_ANGLES]
+#
+# (Use a.key == "meme" for the classic top/bottom meme type.) Then set the
+# look via env vars in .env:
+#   X_AGENT_BRAND_COLOR=#1d9bf0   title bar + panel accents
+#   X_AGENT_HANDLE=@yourhandle    printed on the comic footer

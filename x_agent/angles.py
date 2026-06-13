@@ -81,6 +81,18 @@ DEFAULT_ANGLES: list[Angle] = [
         fmt="meme",
         enabled=False,  # off by default; needs a meme template + Pillow
     ),
+    Angle(
+        key="comic",
+        title="Comic strip",
+        brief=(
+            "A short multi-panel comic that tells a relatable, funny mini-story "
+            "about the audience's real problem using a recurring everyman "
+            "character, landing the product as the satisfying resolution in the "
+            "final panel. Setting captions + punchy dialogue carry it."
+        ),
+        fmt="comic",
+        enabled=False,  # off by default; opt in per product (renders via Pillow)
+    ),
 ]
 
 

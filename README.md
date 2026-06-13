@@ -28,7 +28,9 @@ Every time its timer fires, the agent:
 2. **Picks a talking point** — your least-recently-used real fact — so
    posts stay specific instead of generic brand mush.
 3. **Writes the post** with `claude -p` (your Claude plan, no API key),
-   gated by an AI-slop scorer with a deterministic template fallback.
+   gated by an AI-slop scorer with a deterministic template fallback. The
+   post can be plain text, a meme, or a multi-panel **comic strip** —
+   whichever the chosen angle's content type is (all rendered locally).
 4. **Posts to X** with the product link applied per your policy.
 5. **Tracks engagement** and, a few days later, turns it into a reward
    that updates that angle's posterior — so the next pick is smarter.
@@ -61,6 +63,7 @@ your X account  ◄── posts ── agent ── reads metrics ──►  the
 | AI posts read like AI | Ship them anyway | **Slop gate**: every draft scored 0-50, regenerated against flagged tells, template fallback below threshold |
 | Bots drift into spam or infringement | Hope the prompt holds | **Hard guardrails** baked in: no copyrighted text, no fake quotes from real people, no hateful copy or advice-as-fact, no invented stats |
 | Stale, repetitive posts | Feed it news by hand | **Optional web grounding**: the agent searches for one timely, real hook and ties the product to it (opt-in, falls back safely) |
+| One format forever (just text) | Bolt on a separate tool per format | **Pluggable content types**: text, classic memes, and multi-panel **comic strips** (rendered locally, no image-gen), each its own bandit arm so the loop learns which format lands |
 | A heavy stack to babysit | Postgres + a queue + a dashboard | One JSON state file. `git pull` never fights your config (gitignored overlay) |
 
 ## The feedback loop (the core idea)
@@ -142,7 +145,9 @@ until you opt in.
 | `x_agent/state.py` | the single local JSON ledger |
 | `x_agent/health_check.py` | pre-launch verification gate |
 | `x_agent/loop.py` | optional foreground runner (instead of systemd) |
-| `x_agent/meme.py` | optional top/bottom-text meme renderer |
+| `x_agent/render.py` | content-type render dispatch (text / meme / comic) |
+| `x_agent/meme.py` | top/bottom-text meme renderer (Pillow) |
+| `x_agent/comic.py` | multi-panel comic-strip renderer (Pillow) |
 
 ## Customizing
 

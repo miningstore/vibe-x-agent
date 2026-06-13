@@ -36,6 +36,7 @@ class GeneratedPost:
     text: str                 # tweet body, no URL (the poster appends links)
     meme_top: str = ""        # only used when angle.fmt == "meme"
     meme_bottom: str = ""
+    media: dict | None = None  # structured spec for richer types (e.g. comic panels)
     source: str = "claude"    # "claude" | "template"
 
 
@@ -154,14 +155,30 @@ def _extra_house_rules() -> str:
 
 def _system_prompt(product: Product, angle: Angle, max_chars: int, *, grounded: bool = False) -> str:
     banned = ", ".join(repr(b) for b in cfg.BANNED) or "(none)"
-    meme_clause = ""
+    format_clause = ""
     schema = '{"text": str}'
     if angle.fmt == "meme":
         schema = '{"text": str, "meme_top": str, "meme_bottom": str}'
-        meme_clause = (
+        format_clause = (
             "\nThis is a MEME post. Also return meme_top (the setup, 2-6 words) "
             "and meme_bottom (the punchline, 2-6 words) for the image overlay. "
             "The text field is the tweet body that accompanies the image.\n"
+        )
+    elif angle.fmt == "comic":
+        schema = ('{"text": str, "comic": {"title": str, "panels": '
+                  '[{"caption": str, "lines": [{"speaker": str, "line": str}], "sfx": str}], '
+                  '"tagline": str}}')
+        format_clause = (
+            "\nThis is a COMIC STRIP post. Also return a comic object: a short "
+            "punchy title, 4 to 6 panels, and a one-line tagline naming the "
+            "product. Each panel has an optional caption (the setting or a time, "
+            "a few words in caps), 1 to 2 dialogue lines (each a speaker name "
+            "plus a line of <= 12 words), and an optional sfx (a sound effect). "
+            "Tell a relatable, funny mini-story about the audience's real problem "
+            "using a recurring everyman character, and land the product as the "
+            "satisfying resolution in the final panel. Dialogue carries the "
+            "story; keep lines short and natural. The 'text' field is the tweet "
+            "body posted alongside the image.\n"
         )
     grounding_clause = ""
     if grounded:
@@ -178,7 +195,7 @@ def _system_prompt(product: Product, angle: Angle, max_chars: int, *, grounded: 
         f"{product.name}. Audience: {product.audience}.\n\n"
         f"VOICE: {product.voice}\n\n"
         f"Output ONE JSON object, no markdown, no prose outside it. Schema: {schema}\n"
-        f"{meme_clause}{grounding_clause}\n"
+        f"{format_clause}{grounding_clause}\n"
         "RULES:\n"
         f"- text: <= {max_chars} characters. Lead with a concrete benefit, number, "
         "or vivid image. Never open with a throat-clear ('In today's world', "
@@ -260,6 +277,11 @@ def _parse(text: str, angle: Angle) -> GeneratedPost | None:
     body = data.get("text")
     if not isinstance(body, str) or not body.strip():
         return None
+    if angle.fmt == "comic":
+        spec = data.get("comic")
+        if not isinstance(spec, dict) or not isinstance(spec.get("panels"), list) or not spec["panels"]:
+            return None
+        return GeneratedPost(text=body.strip(), media=spec)
     top = data.get("meme_top") if isinstance(data.get("meme_top"), str) else ""
     bottom = data.get("meme_bottom") if isinstance(data.get("meme_bottom"), str) else ""
     return GeneratedPost(text=body.strip(), meme_top=top.strip(), meme_bottom=bottom.strip())
@@ -351,6 +373,18 @@ def _template(product: Product, angle: Angle, talking_point: str | None) -> Gene
             meme_bottom=product.one_liner[:60],
             source="template",
         )
+    if angle.fmt == "comic":
+        who = (product.audience.split(" and ")[0] or "YOU").strip()[:10] or "YOU"
+        spec = {
+            "title": product.name,
+            "panels": [
+                {"caption": "BEFORE", "lines": [{"speaker": who, "line": "Ugh, not this again."}], "sfx": ""},
+                {"caption": "", "lines": [{"speaker": who, "line": body[:90]}], "sfx": ""},
+                {"caption": "AFTER", "lines": [{"speaker": product.name[:10] or "US", "line": product.one_liner[:90]}], "sfx": ""},
+            ],
+            "tagline": product.one_liner[:48],
+        }
+        return GeneratedPost(text=body, media=spec, source="template")
     return GeneratedPost(text=body, source="template")
 
 
@@ -365,4 +399,5 @@ def _enforce_limits(p: GeneratedPost, max_chars: int) -> GeneratedPost:
         body = body[:cut].rstrip(" ,.;:") + "…"
     top = p.meme_top.replace("—", "").replace("–", "")[:60]
     bottom = p.meme_bottom.replace("—", "").replace("–", "")[:60]
-    return GeneratedPost(text=body, meme_top=top, meme_bottom=bottom, source=p.source)
+    return GeneratedPost(text=body, meme_top=top, meme_bottom=bottom,
+                         media=p.media, source=p.source)
